@@ -41,7 +41,6 @@ end
 
    for i=1:Dlina2
       for j=1:Dlina
-          array = pos_test
           if ((pos_test(i)<=pos_ref(j)+delta) && (pos_test(i)>=pos_ref(j)-delta))
               FP_array(i) = 0;
           end
