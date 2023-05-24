@@ -88,8 +88,11 @@ function Pan_Tompkins(ECG_fg,fs)
     
 
 
-    TheSig = maximum(Filted_ECG[1:2*Int(fs)])*(0.25)
-    TheNoise = mean(Filted_ECG[1:2*Int(fs)])*(0.5)
+    # TheSig = maximum(Filted_ECG[1:2*Int(fs)])*(0.25)
+    # TheNoise = mean(Filted_ECG[1:2*Int(fs)])*(0.5)
+    # Thereshold = TheNoise + 0.25 * (TheSig - TheNoise)
+    TheSig = maximum(Derivative[1:2*Int(fs)])*(0.5)
+    TheNoise = mean(Derivative[1:2*Int(fs)])*(0.5)
     Thereshold = TheNoise + 0.25 * (TheSig - TheNoise)
     
     SignalLine = fill(0.0,length(Filted_ECG))
@@ -97,36 +100,92 @@ function Pan_Tompkins(ECG_fg,fs)
     TheresholdLine = fill(0.0,length(Filted_ECG))
     R_zub = Array{Any}(missing, Dlina);
     R_zub2 = Array{Any}(missing, Dlina);
-
     limit = 0
-    
-    for i = 2:length(Filted_ECG)-1
-        if (Filted_ECG[i]>Filted_ECG[i+1]) && (Filted_ECG[i]>Filted_ECG[i-1])
-            if Filted_ECG[i]<Thereshold && Filted_ECG[i]>TheNoise
-                TheNoise = 0.125 * Filted_ECG[i] + 0.850 * TheNoise #was 0.875, we replace in case to reduce noise and find low peaks ECG
-            elseif Filted_ECG[i]>=Thereshold 
-                TheSig = 0.125 * Filted_ECG[i] + 0.875 * TheSig
-                if limit<=0 && Filted_ECG[i]>TheSig
-                    R_zub[i] = Filted_ECG[i]
-                    temp = 0
-                    temp2 = 0
-                    for a in -10:10
-                        if ECG_fg[i+a]>temp
-                            temp = ECG_fg[i+a]
-                            temp2 = a
-                        end
+    for i = 2:length(Filted_ECG)-Int(2*fs)
+     if (Filted_ECG[i]>Filted_ECG[i+1]) && (Filted_ECG[i]>Filted_ECG[i-1])
+        if Filted_ECG[i]<Thereshold 
+            TheNoise = 0.125 * Filted_ECG[i] + 0.875 * TheNoise
+        elseif Filted_ECG[i]>Thereshold 
+            TheSig = 0.125 * Filted_ECG[i] + 0.875 * TheSig
+            Thereshold = TheNoise + 0.25 * (TheSig - TheNoise)
+            if limit<=0 && Filted_ECG[i]>=TheSig && (Filted_ECG[i]>=maximum(Filted_ECG[i:i+Int(2*fs)])*(0.5))
+                R_zub[i] = Filted_ECG[i]
+                temp = 0
+                temp2 = 0
+                for a in -15:15
+                    if ECG_fg[i+a]>temp
+                        temp = ECG_fg[i+a]
+                        temp2 = a
                     end
-                    R_zub2[i+temp2] = temp
-                    push!(pos_ECG_R,(i+temp2)*T);
-                    limit = 200/(T*1000)
                 end
+                R_zub2[i+temp2] = temp
+                limit = 0.5*fs
+                push!(pos_ECG_R,(i+temp2)*T);
             end
         end
-        Thereshold = TheNoise + 0.25 * (TheSig - TheNoise)
-        NoiseLine[i] = TheNoise
-        SignalLine[i] = TheSig
-        TheresholdLine[i] = Thereshold
-        limit = limit - 1
-    end
+     end
+    NoiseLine[i] = TheNoise
+    SignalLine[i] = TheSig
+    TheresholdLine[i] = Thereshold
+    limit = limit - 1
+  end
+
+    # for i = 2:length(Derivative)-1
+    #     if (Derivative[i]>Derivative[i+1]) && (Derivative[i]>Derivative[i-1])
+    #         if Derivative[i]<Thereshold && Derivative[i]>TheNoise
+    #             TheNoise = 0.125 * Derivative[i] + 0.850 * TheNoise
+    #         elseif Derivative[i]>Thereshold 
+    #             TheSig = 0.125 * Derivative[i] + 0.875 * TheSig
+    #             if limit<=0 && Filted_ECG[i]>TheSig
+    #                 R_zub[i] = Filted_ECG[i]
+    #                 temp = ECG_fg[i]
+    #                 temp2 = 0
+    #                 for a in -15:15
+    #                     if ECG_fg[i+a]>temp
+    #                         temp = ECG_fg[i+a]
+    #                         temp2 = a
+    #                     end
+    #                 end
+    #                 R_zub2[i+temp2] = temp
+    #                 push!(pos_ECG_R,(i+temp2)*T);
+    #                 limit = 0.6*fs
+    #             end
+    #         end
+    #     end
+    #     NoiseLine[i] = TheNoise
+    #     SignalLine[i] = TheSig
+    #     TheresholdLine[i] = Thereshold
+    #     limit = limit - 1
+    # end
+
+    
+    # for i = 2:length(Filted_ECG)-1
+    #     if (Filted_ECG[i]>Filted_ECG[i+1]) && (Filted_ECG[i]>Filted_ECG[i-1])
+    #         if Filted_ECG[i]<Thereshold && Filted_ECG[i]>TheNoise
+    #             TheNoise = 0.125 * Filted_ECG[i] + 0.85 * TheNoise #was 0.875, we replace in case to reduce noise and find low peaks ECG
+    #         elseif Filted_ECG[i]>=Thereshold 
+    #             TheSig = 0.125 * Filted_ECG[i] + 0.875 * TheSig
+    #             if limit<=0 && Filted_ECG[i]>TheSig 
+    #                 R_zub[i] = Filted_ECG[i]
+    #                 temp = 0
+    #                 temp2 = 0
+    #                 for a in -10:10
+    #                     if ECG_fg[i+a]>temp
+    #                         temp = ECG_fg[i+a]
+    #                         temp2 = a
+    #                     end
+    #                 end
+    #                 R_zub2[i+temp2] = temp
+    #                 push!(pos_ECG_R,(i+temp2)*T);
+    #                 limit = 200/(T*1000)
+    #             end
+    #         end
+    #     end
+    #     Thereshold = TheNoise + 0.25 * (TheSig - TheNoise)
+    #     NoiseLine[i] = TheNoise
+    #     SignalLine[i] = TheSig
+    #     TheresholdLine[i] = Thereshold
+    #     limit = limit - 1
+    # end
     return(Filted_ECG,ECG_fg,R_zub,R_zub2,t,pos_ECG_R)
 end

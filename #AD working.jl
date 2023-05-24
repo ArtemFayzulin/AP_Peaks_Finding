@@ -1,7 +1,7 @@
-#PPG working
+#work with AD
 using DSP
 
-function PPG(ap_fg,fs,w)
+function AD(ap_fg,fs,w)
    ap_fg = ap_fg[50:end-50]
    Dlina = length(ap_fg)
    T = 1/fs;
@@ -32,7 +32,7 @@ function PPG(ap_fg,fs,w)
 
 
  #использованеи функции SSF
-
+ threshold = 0;
  SSF = fill(0.0,Dlina);
  for k in 1:Dlina-1
     if (Filted[k+1] - Filted[k]) > 0  
@@ -48,8 +48,13 @@ function PPG(ap_fg,fs,w)
          end
     end
  #нахождение максимума в первые 3 секунды
+ if t[k]<=3 
+     if SSF[k]>=threshold
+        threshold = SSF[k];      
+     end
  end
 
+ end
 
 
  #нахождение  пиков
@@ -62,30 +67,24 @@ function PPG(ap_fg,fs,w)
  tochka_Flt = Array{Any}(missing, Dlina);
  tochka = Array{Any}(missing, Dlina);
  zaderzhka_Flt = 387 #задержка вносимая фильтром
- threshold = maximum(SSF[2*Int(fs):3*Int(fs)])
- limit = 1
  for i=1:Dlina-w
-   if (SSF[i]<= 0.7*threshold) && (SSF[i+1]>=0.7*threshold) && (SSF[i]!=0)
+   if (SSF[i]<= 0.8*threshold) && (SSF[i+1]>=0.8*threshold) && (SSF[i]!=0)
                         for a=i:-1:i-w
-                            if SSF[a]==0 && SSF[a+1]!=0 && limit!=0
+                            if SSF[a]==0 && SSF[a+1]!=0 
                                (tochka[a-zaderzhka_Flt]=ap_fg[a-zaderzhka_Flt]);
                                (tochka_Flt[a]=Filted[a]);
                                push!(pos_test_min,(a-zaderzhka_Flt)*T);
-                               limit = 0
                             end
                         end
-                        limit = 1
 
 
                         for a=i:i+w
-                            if SSF[a]==0 && SSF[a-1]!=0  && limit!=0                             
+                            if SSF[a]==0 && SSF[a-1]!=0                               
                                (tochka[a-zaderzhka_Flt]=ap_fg[a-zaderzhka_Flt]);
                                 (tochka_Flt[a]=Filted[a]);
                                push!(pos_test_max,(a-zaderzhka_Flt)*T);
-                               limit = 0
                             end
                         end
-                        limit = 1
     end
 end 
 

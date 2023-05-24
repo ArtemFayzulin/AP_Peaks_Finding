@@ -2,14 +2,15 @@ include("readbin.jl")
 using DSP
 using StatsBase
 
-filepath = raw"C:\Users\artem\OneDrive\Рабочий стол\Для чего\вуз\Science And Diploma\Програмесы\Сигналы САКР\Мельникова 1\Мельникова_Елизавета_Дмитриевна_21-04-22_11-43-20_.hdr"
+#filepath = raw"C:\Users\artem\OneDrive\Рабочий стол\Для чего\вуз\Science And Diploma\Програмесы\Сигналы САКР\Мельникова 1\Мельникова_Елизавета_Дмитриевна_21-04-22_11-43-20_.hdr"
+#filepath = raw"C:\Users\artem\OneDrive\Рабочий стол\Для чего\вуз\Science And Diploma\Програмесы\Сигналы САКР\Сигналы\Мельникова_Елизавета_Дмитриевна_26-05-22_14-03-23_.hdr"
+filepath=raw"C:\Users\artem\OneDrive\Рабочий стол\Для чего\вуз\Science And Diploma\Програмесы\Сигналы САКР\Сигналы\Мельникова_Елизавета_Дмитриевна_26-05-22_14-03-23_.hdr"
 named_channels, fs, timestart, units = readbin(filepath)
-
-ap = named_channels.FPrsNorm1 ./ 1000 # давление
+ap = (named_channels.Ir .- named_channels.Red)./1000# давление
 ecg = named_channels.LR ./ 1000 #экг
 
 z = length(ap); #считаем длину сигнала
-fragment = 25000; #вручную задаем сколько отсчетов мы хотим исследовать
+fragment = 35000; #вручную задаем сколько отсчетов мы хотим исследовать
 zaderzhka = z - fragment; # переменная обуславшивающая в дальнейшем индексы, а также начало отсчета для фрагмента
 
 ECG_fg = ecg[zaderzhka:end];
@@ -21,6 +22,8 @@ T = 1/fs;
 tmax = length(ap_fg)*T;
 t = 0:T:tmax - T;
 
+plot(t[1:2000],ECG_fg[1:2000])
+plot(t[1:2000],ap_fg[1:2000])
 ################
 #ECG SIGNAL working
 
@@ -85,7 +88,7 @@ SQUARING and DERIVATIVE
 coeff = [1/4,1/8,0,-1/8,-1/4]
 Derivative = filtfilt(coeff,Filted_ECG).^2
 
-plot(Derivative[1000:2000])
+plot(Derivative[1000:6000])
 plot(Filted_ECG[3000:6000])
 
 """""
@@ -129,7 +132,9 @@ function indmax(x)
     return z
 end
 
-TheSig = maximum(Filted_ECG[1:2*Int(fs)])*(0.25)
+
+
+TheSig = maximum(Filted_ECG[1:2*Int(fs)])*(0.5)
 TheNoise = mean(Filted_ECG[1:2*Int(fs)])*(0.5)
 Thereshold = TheNoise + 0.25 * (TheSig - TheNoise)
 
@@ -143,43 +148,103 @@ R_zub = Array{Any}(missing, Dlina);
 R_zub2 = Array{Any}(missing, Dlina);
 limit = 0
 
-for i = 2:length(Filted_ECG)-1
+for i = 2:length(Filted_ECG)-Int(2*fs)
     if (Filted_ECG[i]>Filted_ECG[i+1]) && (Filted_ECG[i]>Filted_ECG[i-1])
-        if Filted_ECG[i]<Thereshold && Filted_ECG[i]>TheNoise
-            TheNoise = 0.125 * Filted_ECG[i] + 0.850 * TheNoise
+        if Filted_ECG[i]<Thereshold 
+            TheNoise = 0.125 * Filted_ECG[i] + 0.875 * TheNoise
         elseif Filted_ECG[i]>Thereshold 
             TheSig = 0.125 * Filted_ECG[i] + 0.875 * TheSig
-            if limit<=0 && Filted_ECG[i]>TheSig
+            Thereshold = TheNoise + 0.25 * (TheSig - TheNoise)
+            if limit<=0 && Filted_ECG[i]>=TheSig && (Filted_ECG[i]>=maximum(Filted_ECG[i:i+Int(2*fs)])*(0.5))
                 R_zub[i] = Filted_ECG[i]
                 temp = 0
                 temp2 = 0
-                for a in -10:10
+                for a in -20:20
                     if ECG_fg[i+a]>temp
                         temp = ECG_fg[i+a]
                         temp2 = a
                     end
                 end
                 R_zub2[i+temp2] = temp
-                limit = 200/(T*1000)
+                limit = 0.5*fs
             end
         end
     end
-    Thereshold = TheNoise + 0.25 * (TheSig - TheNoise)
     NoiseLine[i] = TheNoise
     SignalLine[i] = TheSig
     TheresholdLine[i] = Thereshold
     limit = limit - 1
 end
-plot(SignalLine)
-
 gran  = 1:length(Filted_ECG)
 plot(Filted_ECG[gran])
 plot!(NoiseLine[gran])
 plot!(SignalLine[gran])
 plot!(TheresholdLine[gran])
 scatter!(R_zub[gran])
+plot(ECG_fg[gran])
+scatter!(R_zub2[gran])
 #savefig("POISK_TOCHEK.png")   
-gran1 = 200:370
+
+plot(Filted_ECG)
+scatter!(R_zub)
+
+plot(t,ECG_fg)
+scatter!(t,R_zub2)
+
+
+
+
+plot(Derivative[1000:1200])
+plot([Derivative[1000:1110],Filted_ECG[1000:1110]],layout=(2,1))
+
+
+TheSig = maximum(Derivative[1:2*Int(fs)])*(0.3)
+TheNoise = mean(Derivative[1:2*Int(fs)])*(0.5)
+Thereshold = TheNoise + 0.25 * (TheSig - TheNoise)
+limit = 0
+
+SignalLine = fill(0.0,length(Filted_ECG))
+NoiseLine = fill(0.0,length(Filted_ECG))
+TheresholdLine = fill(0.0,length(Filted_ECG))
+R_zub = Array{Any}(missing, Dlina);
+R_zub2 = Array{Any}(missing, Dlina);
+
+for i = 2:length(Derivative)-1
+    if (Derivative[i]>Derivative[i+1]) && (Derivative[i]>Derivative[i-1])
+        if Derivative[i]<Thereshold && Derivative[i]>TheNoise
+            TheNoise = 0.125 * Derivative[i] + 0.875 * TheNoise
+        elseif Derivative[i]>Thereshold 
+            TheSig = 0.125 * Derivative[i] + 0.875 * TheSig
+            Thereshold = TheNoise + 0.25 * (TheSig - TheNoise)
+            if limit<=0 && Derivative[i]>TheSig && Filted_ECG[i]>0 && (Derivative[i]>maximum(Derivative[i:i+400])*(0.3))
+                R_zub[i] = Filted_ECG[i]
+                temp = ECG_fg[i]
+                temp2 = 0
+                for a in -15:15
+                    if ECG_fg[i+a]>temp
+                        temp = ECG_fg[i+a]
+                        temp2 = a
+                    end
+                end
+                R_zub2[i+temp2] = temp
+                limit = 0.6*fs
+            end
+        end
+    end
+    NoiseLine[i] = TheNoise
+    SignalLine[i] = TheSig
+    TheresholdLine[i] = Thereshold
+    limit = limit - 1
+end
+
+gran  = 1:600
+plot([Derivative[gran],Filted_ECG[gran]],layout=(2,1))
+plot!(NoiseLine[gran])
+plot!(SignalLine[gran])
+plot!(TheresholdLine[gran])
+scatter!(R_zub[gran])
+#savefig("POISK_TOCHEK.png")   
+gran1 = 1:600
 plot([Filted_ECG[gran1],ECG_fg[gran1]],layout = (2,1)) 
 scatter!(R_zub[gran1])  
 
@@ -206,7 +271,7 @@ for n in 31:Dlina
 end
 
 #HighPassFilter
-Filted_LPF = Filted_LPF2
+
 Filted = fill(0.0,length(Filted_LPF));
 for n=775:Dlina
     Filted[n]= Filted[n-1] - (1/774) * Filted_LPF[n] + Filted_LPF[n-387] - Filted_LPF[n-388] + (1/774)*Filted_LPF[n-774];
@@ -214,8 +279,24 @@ end
 
 plot(Filted)
 
+b = fill(0,16)
+  b[1],b[16] = -1,1   
+  a = [-1,1]
+  H = PolynomialRatio(b,a)
+  H_LowPass = H^2
+  mydata = copy(ap_fg)
+  Filted_LPF1 = filt(H_LowPass,mydata)
+  Filted_LPF1 = reverse(Filted_LPF1)
+  Filted_LPF = reverse(filt(H_LowPass,Filted_LPF1))
+ 
+  Filted = fill(0.0,length(Filted_LPF));
+  for n=775:Dlina
+     Filted[n]= Filted[n-1] - (1/774) * Filted_LPF[n] + Filted_LPF[n-387] - Filted_LPF[n-388] + (1/774)*Filted_LPF[n-774];
+  end
+
+plot(Filted[50:length(Filt)])
 Dlina = length(Filted)
-threshold = 0;
+threshold = maximum(SSF[2*Int(fs):3*Int(fs)])
 SSF = fill(0.0,Dlina);
 for k in 1:Dlina-1
    if (Filted[k+1] - Filted[k]) > 0  
@@ -230,48 +311,45 @@ for k in 1:Dlina-1
           delta_x = 0;
         end
    end
-#нахождение максимума в первые 3 секунды
- if t[k]<=3 
-    if SSF[k]>=threshold
-       threshold = SSF[k];      
-    end
- end
-
 end
 
 plot(t,SSF)
-
+plot(SSF[2000:end])
 pos_test_min = [];
 pos_test_max = [];
 tochka_Flt = Array{Any}(missing, Dlina);
 tochka = Array{Any}(missing, Dlina);
 zaderzhka_Flt = 387
-
+limit = 1
 for i=1:Dlina-w
    if (SSF[i]<= 0.7*threshold) && (SSF[i+1]>=0.7*threshold) && (SSF[i]!=0)
                         for a=i:-1:i-w
-                            if SSF[a]==0 && SSF[a+1]!=0
+                            if SSF[a]==0 && SSF[a+1]!=0 && limit!=0
                                (tochka[a-zaderzhka_Flt]=ap_fg[a-zaderzhka_Flt]);
                                (tochka_Flt[a]=Filted[a]);
                                push!(pos_test_min,a*T);
+                               limit = 0
                             end
                         end
+                        limit = 1
 
 
                         for a=i:i+w
-                            if SSF[a]==0 && SSF[a-1]!=0                               
+                            if SSF[a]==0 && SSF[a-1]!=0 && limit!=0                              
                                (tochka[a-zaderzhka_Flt]=ap_fg[a-zaderzhka_Flt]);
                                 (tochka_Flt[a]=Filted[a]);
                                push!(pos_test_max,a*T);
+                               limit = 0
                             end
                         end
+                        limit = 1
     end
 end 
 
 
-
-plot(t,Filted,label="Filted")
-scatter!(t,tochka_Flt, label="data", mc=:red, ms=2, ma=0.5)
+watch = 2000:8000
+plot(t[watch],Filted[watch],label="Filted")
+scatter!(t[watch],tochka_Flt[watch], label="data", mc=:red, ms=2, ma=0.5)
 #savefig("graphics_Flt.png")
 
 plot(t,ap_fg,label="Original")
